@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Parts Counter</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, sans-serif; background: #f4f6f8; color: #1f2933;
+      display: flex; justify-content: center; padding: 24px 16px;
+    }
+    main { width: 100%; max-width: 880px; }
+    h1 { margin: 0 0 4px; font-size: 1.8rem; }
+    p.sub { margin: 0 0 24px; color: #616e7c; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    label.drop {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 300px; border: 2px dashed #b8c2cc; border-radius: 12px; background: #fff;
+      cursor: pointer; overflow: hidden; position: relative; text-align: center; padding: 12px;
+    }
+    label.drop:hover { border-color: #2563eb; }
+    label.drop img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; }
+    label.drop .icon { font-size: 2.4rem; }
+    label.drop .name { font-weight: 600; margin-top: 8px; }
+    label.drop .hint { font-size: .85rem; color: #7b8794; }
+    input[type=file] { display: none; }
+    .field { display: flex; flex-direction: column; }
+    .field > span { font-weight: 600; margin-bottom: 6px; }
+    textarea, input[type=text] {
+      width: 100%; padding: 10px; border: 1px solid #cbd2d9; border-radius: 8px; font: inherit; background: #fff;
+    }
+    textarea { flex: 1; min-height: 200px; resize: vertical; font-family: ui-monospace, monospace; font-size: .9rem; }
+    .presets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .presets .hint-line { margin: 0 2px 0 0; }
+    .presets button {
+      width: auto; margin: 0; padding: 4px 10px; font-size: .85rem; font-weight: 500;
+      background: #e4e7eb; color: #1f2933; border-radius: 999px;
+    }
+    .hint-line { font-size: .8rem; color: #7b8794; margin-top: 4px; }
+    #context { margin-top: 16px; }
+    button {
+      width: 100%; margin-top: 16px; padding: 14px; border: 0; border-radius: 10px;
+      background: #2563eb; color: #fff; font-size: 1.1rem; font-weight: 600; cursor: pointer;
+    }
+    button:disabled { background: #93b0f0; cursor: wait; }
+    #error { color: #b00020; margin-top: 12px; }
+    #result { margin-top: 28px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .stat { background: #fff; border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .stat b { display: block; font-size: 1.6rem; }
+    .stat span { font-size: .85rem; color: #616e7c; }
+    .summary { background: #fff; border-left: 4px solid #2563eb; padding: 12px 14px; border-radius: 6px; margin-bottom: 16px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e4e7eb; vertical-align: top; }
+    th { background: #f0f2f5; font-size: .85rem; color: #52606d; }
+    td.num { text-align: center; font-variant-numeric: tabular-nums; }
+    td.notes { font-size: .85rem; color: #616e7c; }
+    .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+    .ok { background: #d1fae5; color: #065f46; }
+    .short { background: #fef3c7; color: #92400e; }
+    .missing { background: #fee2e2; color: #991b1b; }
+    h2 { font-size: 1.1rem; margin: 24px 0 8px; }
+    ul.extras { background: #fff; border-radius: 10px; padding: 12px 12px 12px 32px; margin: 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Parts Counter</h1>
+  <p class="sub">Photograph the things you've got, paste the list of what you need (parts, ingredients, supplies, anything), and get a tally of what's there, what's short and what's missing.</p>
+
+  <form id="form">
+    <div class="grid">
+      <label class="drop">
+        <input type="file" name="photo" accept="image/*" required>
+        <span class="icon">📷</span><span class="name">Photo of your items</span>
+        <span class="hint">Spread them out on a plain surface, nothing overlapping</span>
+      </label>
+
+      <div class="field">
+        <span>Required list</span>
+        <div class="presets">
+          <span class="hint-line">Try an example:</span>
+          <button type="button" data-preset="fan">Table fan electronics</button>
+          <button type="button" data-preset="pc">PC build</button>
+          <button type="button" data-preset="recipe">Pancake recipe</button>
+          <button type="button" data-preset="school">School supplies</button>
+        </div>
+        <textarea name="items" required placeholder="Any format works, e.g.&#10;4x 10k resistor&#10;two AA batteries&#10;500 ml milk&#10;notebooks, pens x3, ruler"></textarea>
+        <div class="hint-line">Write it however you like: one per line, comma-separated, "4x", "x4" or "four". No number means 1.</div>
+      </div>
+    </div>
+
+    <input type="text" id="context" name="context" placeholder="Optional context, e.g. Parts for a 12V table fan, or Groceries for this week">
+
+    <button type="submit" id="btn">Count &amp; compare</button>
+    <div id="error"></div>
+  </form>
+
+  <div id="result"></div>
+</main>
+
+<script>
+  const PRESETS = {
+    fan: ["1 DC motor 12V", "1 fan blade", "1 speed switch", "2x 1N4007 diode", "1 capacitor 1000uF",
+          "4x 10k resistor", "1 LED", "1 DC power jack", "connecting wires x 6", "8x screws"],
+    pc: ["1 CPU", "1 CPU cooler", "1 motherboard", "2x RAM stick", "1 SSD", "1 graphics card",
+         "1 power supply", "1 cabinet", "3x case fan", "1 SATA cable"],
+    recipe: ["3 eggs", "250 ml milk", "200 g flour", "2 tbsp sugar", "butter",
+             "baking powder", "a pinch of salt", "maple syrup"],
+    school: ["notebooks x5, blue pens x4, 2 pencils, eraser, sharpener, ruler, glue stick, scissors"],
+  };
+
+  const form = document.getElementById('form');
+  const btn = document.getElementById('btn');
+  const error = document.getElementById('error');
+  const result = document.getElementById('result');
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+    form.items.value = PRESETS[b.dataset.preset].join('\n');
+  }));
+
+  const photo = form.querySelector('input[type=file]');
+  photo.addEventListener('change', () => {
+    const box = photo.parentElement;
+    box.querySelector('img')?.remove();
+    if (photo.files[0]) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(photo.files[0]);
+      box.appendChild(img);
+    }
+  });
+
+  const LABEL = { ok: 'Complete', short: 'Short', missing: 'Missing' };
+
+  function render(d) {
+    const t = d.totals;
+    const rows = d.rows.map(r => `
+      <tr>
+        <td>${esc(r.name)}</td>
+        <td class="num">${r.need}</td>
+        <td class="num">${r.have}</td>
+        <td><span class="pill ${r.status}">${LABEL[r.status]}${r.status === 'short' ? ` (−${r.need - r.have})` : ''}</span></td>
+        <td class="notes">${esc(r.notes)}</td>
+      </tr>`).join('');
+    const extras = d.extras.length
+      ? `<h2>Not on your list</h2><ul class="extras">${d.extras.map(e => `<li>${esc(e.name)} × ${e.count}</li>`).join('')}</ul>`
+      : '';
+    result.innerHTML = `
+      <div class="stats">
+        <div class="stat"><b>${t.complete}/${t.lines}</b><span>list items complete</span></div>
+        <div class="stat"><b>${t.matched}/${t.required}</b><span>units matched</span></div>
+        <div class="stat"><b>${t.in_photo}</b><span>total units in photo</span></div>
+      </div>
+      <div class="summary">${esc(d.summary)}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Item</th><th>Need</th><th>Found</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      ${extras}`;
+    result.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    error.textContent = '';
+    result.innerHTML = '';
+    btn.disabled = true;
+    btn.textContent = 'Counting…';
+    try {
+      const res = await fetch('/tally', { method: 'POST', body: new FormData(form) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Something went wrong');
+      render(data);
+    } catch (err) {
+      error.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Count & compare';
+    }
+  });
+</script>
+</body>
+</html>
