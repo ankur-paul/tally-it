@@ -10,7 +10,15 @@ MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB upload
 
-client = genai.Client()  # reads GEMINI_API_KEY from the environment
+_client = None
+
+
+def get_client():
+    """Create the Gemini client on first use, so the page still loads if the key is missing."""
+    global _client
+    if _client is None:
+        _client = genai.Client()  # reads GEMINI_API_KEY from the environment
+    return _client
 
 PROMPT = """You are a careful inventory checker. The photo shows things someone has bought or gathered.
 Context: {context}
@@ -72,8 +80,11 @@ def tally():
 
     context = request.form.get("context", "").strip() or "not given"
 
+    if not (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")):
+        return jsonify(error="Server is missing GEMINI_API_KEY. Set it in the environment and redeploy."), 500
+
     try:
-        response = client.models.generate_content(
+        response = get_client().models.generate_content(
             model=MODEL,
             contents=[
                 PROMPT.format(context=context, items=items),
